@@ -19,6 +19,8 @@ import org.dataloader.stats.Statistics;
 public class DataLoaderRegistry {
     private final Map<String, DataLoader<?, ?>> dataLoaders = new ConcurrentHashMap<>();
 
+    private DataLoaderFactory dataLoaderFactory;
+
     /**
      * This will register a new dataloader
      *
@@ -29,6 +31,10 @@ public class DataLoaderRegistry {
     public DataLoaderRegistry register(String key, DataLoader<?, ?> dataLoader) {
         dataLoaders.put(key, dataLoader);
         return this;
+    }
+
+    public void useFactory(DataLoaderFactory dataLoaderFactory) {
+        this.dataLoaderFactory = dataLoaderFactory;
     }
 
     /**
@@ -84,7 +90,8 @@ public class DataLoaderRegistry {
     }
 
     /**
-     * Returns the dataloader that was registered under the specified key
+     * Returns the dataloader that was registered under the specified key.
+     * If a data loader factory is used in this registry, it will be used to lazily create required loaders.
      *
      * @param key the key of the data loader
      * @param <K> the type of keys
@@ -93,7 +100,11 @@ public class DataLoaderRegistry {
      */
     @SuppressWarnings("unchecked")
     public <K, V> DataLoader<K, V> getDataLoader(String key) {
-        return (DataLoader<K, V>) dataLoaders.get(key);
+        if (dataLoaderFactory == null) {
+            return (DataLoader<K, V>) dataLoaders.get(key);
+        }
+
+        return computeIfAbsent(key, k -> dataLoaderFactory.createForKey(k));
     }
 
     /**
